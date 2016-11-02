@@ -1,6 +1,7 @@
 
 import {Vector2d} from './Vectors';
 
+//TODO implement constraint class/objects instead of the hacky edge mapping done further down
 class RigidBody {
     constructor(readonly boundingBox: BoundingBox, readonly mass: number) {}
 }
@@ -8,8 +9,6 @@ class RigidBody {
 class BoundingBox {
     constructor(readonly points: Vector2d[], readonly width: number, readonly height: number) {}
 }
-
-
 
 class GameState {
     constructor(readonly rigidBodies: RigidBody[]){}
