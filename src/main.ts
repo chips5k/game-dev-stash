@@ -55,7 +55,7 @@ function advanceState(timestep: number, state: GameState, previousState: GameSta
         r.constraints.forEach((c, i) => {
 
             //Create a vector to represent difference between two points in an edge
-            let nDiffVector = Vector2d.subtract(nPoints[c.pathIndexA], nPoints[c.pathIndexB]);
+            let nDiffVector = Vector2d.subtract(nPoints[c.pathIndexB], nPoints[c.pathIndexA]);
 
             //Depending on which edge we are working with
             //determine the "rest" length of the edge
@@ -88,7 +88,7 @@ function renderState(state: GameState, canvas: HTMLCanvasElement, ctx: CanvasRen
         let points = state.rigidBodies[i].path.points;   
 
         ctx.beginPath();
-        ctx.moveTo(points[0].x, points[1].x);
+        ctx.moveTo(points[0].x, points[1].y);
         for(var j = 0; j < points.length; j++) {
             let p = points[j];
             ctx.lineTo(p.x, p.y);
@@ -119,8 +119,8 @@ function main(window: Window, canvas: HTMLCanvasElement) {
         new Constraint(1, 2, width),
         new Constraint(2, 3, height),
         new Constraint(3, 0, width),
-        new Constraint(1, 3, dimensionsLength),
-        new Constraint(0, 2, dimensionsLength)
+        new Constraint(0, 3, dimensionsLength),
+        new Constraint(2, 0, dimensionsLength)
     ];
 
 
