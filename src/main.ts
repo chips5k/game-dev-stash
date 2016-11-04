@@ -62,12 +62,13 @@ function advanceState(timestep: number, state: GameState, previousState: GameSta
         });
         
         return new RigidBody(new Path(nPoints, r.path.closed), r.constraints, r.mass);
-    });
+    }); 
 
     return new GameState(rigidBodies);
 }
 
 function renderState(state: GameState, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): void {
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     for(let i = 0; i < state.rigidBodies.length; i++) {
@@ -83,12 +84,35 @@ function renderState(state: GameState, canvas: HTMLCanvasElement, ctx: CanvasRen
         if(state.rigidBodies[i].path.closed) {
             ctx.lineTo(points[0].x, points[0].y);
         }
+
+        ctx.strokeStyle="red";
+        ctx.stroke();
+
     }
-    ctx.strokeStyle="red";
-    ctx.stroke();
+   
     
 }
 
+
+
+function createTriangleRigidBody(width: number, height: number, position: Vector2d, mass: number) {
+    
+    let path = new Path([
+            position, 
+            new Vector2d(position.x - width / 2, position.y + height), 
+            new Vector2d(position.x + width / 2, position.y + height)
+        ],
+        true
+    );
+
+    let constraints = [
+        new Constraint(0, 1, height),
+        new Constraint(1, 2, width),
+        new Constraint(0, 2, height)
+    ];
+
+    return new RigidBody(path, constraints, mass);
+}   
 
 function createSquareRigidBody(width: number, height: number, position: Vector2d, mass: number) {
     
@@ -117,6 +141,7 @@ function main(window: Window, canvas: HTMLCanvasElement) {
     let ctx = canvas.getContext('2d');
 
     let state = new GameState([
+        createTriangleRigidBody(120, 85, new Vector2d(70, 60), 3),
         createSquareRigidBody(40, 60, new Vector2d(250, 30), 2),
         createSquareRigidBody(70, 20, new Vector2d(400, 10), 1)
     ]); 
