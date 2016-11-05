@@ -1,68 +1,50 @@
 
 import {Vector2d} from './Vectors';
 
-//TODO implement constraint class/objects instead of the hacky edge mapping done further down
 class RigidBody {
-    constructor(readonly path: Path, readonly constraints: Constraint[], readonly mass: number) {}
+    constructor(readonly particles: Particle[], readonly constraints: Constraint[]) {}
 }
 
 class Constraint {
-    constructor(readonly pathIndexA: number, readonly pathIndexB: number, readonly length: number) {}
+    constructor(readonly particleIndexA: number, readonly particleIndexB: number, readonly length: number) {}
 }
 
-class Path {
-    constructor(readonly points: Vector2d[], readonly closed: boolean) {}
-}
-
-class BoundingBox {
-    constructor(readonly points: Vector2d[], readonly width: number, readonly height: number) {}
+class Particle {
+    constructor(readonly position: Vector2d, readonly mass: number)  {}
 }
 
 class GameState {
     constructor(readonly rigidBodies: RigidBody[]){}
 }
 
-function calculateVelocity(positionA: Vector2d, positionB: Vector2d) {
-    return Vector2d.subtract(positionA, positionB);
-}
-
-function combineForces(forces: Vector2d[]) {
-    return forces.reduce(Vector2d.add, new Vector2d(0, 0));
-}
-
-function integrateVelocity(velocity: Vector2d, acceleration: Vector2d, timestep: number) {
-    return Vector2d.add(velocity, Vector2d.multiply(acceleration, Math.pow(timestep, 2)));
-}
-
-function integratePosition(position: Vector2d, velocity: Vector2d, acceleration: Vector2d, timestep: number) {
-     return Vector2d.add(position, integrateVelocity(velocity, acceleration, timestep));
-}
-
 function advanceState(timestep: number, state: GameState, previousState: GameState) {
     
-    let rigidBodies = state.rigidBodies.map((r: RigidBody, i: number) => {
+    let rigidBodies = state.rigidBodies.map(function(r, i) {
 
-        let acceleration = combineForces([new Vector2d(0, r.mass * 0.00098)]);
-        let nPoints = r.path.points.map((p: Vector2d, j: number) => {
-            return integratePosition(p, calculateVelocity(p, previousState.rigidBodies[i].path.points[j]), acceleration, timestep);
-        }).map((p: Vector2d, j: number) => {
-            if(p.y > 500) {
-                return new Vector2d(p.x, 500);
-            } else {
-                return p;
+        let particles = r.particles.map(function(p , j) {
+            let a = new Vector2d(0, p.mass * 0.00098);
+            let currentVelocity = Vector2d.subtract(p.position, previousState.rigidBodies[i].particles[j].position);
+            let n = Vector2d.add(p.position, Vector2d.add(currentVelocity, Vector2d.multiply(a, Math.pow(timestep, 2))));
+
+            if(n.y > 500) {
+                n = new Vector2d(n.x, 500);
             }
+
+            return new Particle(n, p.mass);
         });
 
         r.constraints.forEach((c, i) => {
-            let nDiffVector = Vector2d.subtract(nPoints[c.pathIndexB], nPoints[c.pathIndexA]);
+            let nDiffVector = Vector2d.subtract(particles[c.particleIndexB].position, particles[c.particleIndexA].position);
             let diff = Vector2d.magnitude(nDiffVector) - c.length;
             let normal = Vector2d.normalize(nDiffVector);
-            nPoints[c.pathIndexA] = Vector2d.add(nPoints[c.pathIndexA], Vector2d.multiply(normal, diff/2));
-            nPoints[c.pathIndexB] = Vector2d.subtract(nPoints[c.pathIndexB], Vector2d.multiply(normal, diff/2));
+            particles[c.particleIndexA] = new Particle(Vector2d.add(particles[c.particleIndexA].position, Vector2d.multiply(normal, diff/2)), particles[c.particleIndexB].mass);
+            particles[c.particleIndexB] = new Particle(Vector2d.subtract(particles[c.particleIndexB].position, Vector2d.multiply(normal, diff/2)), particles[c.particleIndexB].mass);
         });
-        
-        return new RigidBody(new Path(nPoints, r.path.closed), r.constraints, r.mass);
-    }); 
+
+        return new RigidBody(particles, r.constraints);
+
+    });
+    
 
     return new GameState(rigidBodies);
 }
@@ -72,18 +54,16 @@ function renderState(state: GameState, canvas: HTMLCanvasElement, ctx: CanvasRen
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     for(let i = 0; i < state.rigidBodies.length; i++) {
-        let points = state.rigidBodies[i].path.points;   
+        let points = state.rigidBodies[i].particles;   
 
         ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
+        ctx.moveTo(points[0].position.x, points[0].position.y);
         for(var j = 0; j < points.length; j++) {
             let p = points[j];
-            ctx.lineTo(p.x, p.y);
+            ctx.lineTo(p.position.x, p.position.y);
         }
-
-        if(state.rigidBodies[i].path.closed) {
-            ctx.lineTo(points[0].x, points[0].y);
-        }
+        
+        ctx.lineTo(points[0].position.x, points[0].position.y);
 
         ctx.strokeStyle="red";
         ctx.stroke();
@@ -97,13 +77,12 @@ function renderState(state: GameState, canvas: HTMLCanvasElement, ctx: CanvasRen
 
 function createTriangleRigidBody(width: number, height: number, position: Vector2d, mass: number) {
     
-    let path = new Path([
-            position, 
-            new Vector2d(position.x - width / 2, position.y + height), 
-            new Vector2d(position.x + width / 2, position.y + height)
-        ],
-        true
-    );
+    let particles = [
+        new Particle(position, mass / 3), 
+        new Particle(new Vector2d(position.x - width / 2, position.y + height), mass / 3), 
+        new Particle(new Vector2d(position.x + width / 2, position.y + height), mass / 3)
+    ];
+
 
     let constraints = [
         new Constraint(0, 1, height),
@@ -111,18 +90,17 @@ function createTriangleRigidBody(width: number, height: number, position: Vector
         new Constraint(0, 2, height)
     ];
 
-    return new RigidBody(path, constraints, mass);
+    return new RigidBody(particles, constraints);
 }   
 
 function createSquareRigidBody(width: number, height: number, position: Vector2d, mass: number) {
     
-    let path = new Path([
-        position, 
-        new Vector2d(position.x, position.y + height), 
-        new Vector2d(position.x + width, position.y + height), 
-        new Vector2d(position.x + width, position.y)], 
-        true
-    );
+    let particles = [
+        new Particle(position, mass / 4), 
+        new Particle(new Vector2d(position.x, position.y + height), mass / 4), 
+        new Particle(new Vector2d(position.x + width, position.y + height), mass / 4), 
+        new Particle(new Vector2d(position.x + width, position.y), mass / 4)
+    ];
 
     let constraints = [
         new Constraint(0, 1, height),
@@ -132,7 +110,7 @@ function createSquareRigidBody(width: number, height: number, position: Vector2d
         new Constraint(1, 3, Vector2d.magnitude(new Vector2d(width, height)))
     ];
 
-    return new RigidBody(path, constraints, mass);
+    return new RigidBody(particles, constraints);
 }   
 
 
