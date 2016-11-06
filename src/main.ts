@@ -17,12 +17,60 @@ class GameState {
     constructor(readonly rigidBodies: RigidBody[]){}
 }
 
-function advanceState(timestep: number, state: GameState, previousState: GameState) {
+
+function advanceState(timestep: number, state: GameState, previousState: GameState, inputEventQueue: KeyboardEvent[]) {
+
+    //Add default air resistance
+    let globalForces: Vector2d[] = [
+        new Vector2d(0, -0.00009)
+    ];
+
+    for(let e of inputEventQueue) {
+        switch(e.type) {
+            case 'keydown':
+                switch(e.key) {
+                    case 'd':   
+                        globalForces.push(new Vector2d(0.0005, 0));
+                    break;
+
+                    case 'a':   
+                        globalForces.push(new Vector2d(-0.0005, 0));
+                    break;
+
+                    case 'w':
+                        globalForces.push(new Vector2d(0, -0.0005));
+                    break;
+
+                    case 's':
+                        globalForces.push(new Vector2d(0, 0.0005));
+                    break;
+                }
+            break;
+
+            case 'keyup':
+
+            break;
+        }
+    }
+
+
     
+
     let rigidBodies = state.rigidBodies.map(function(r, i) {
 
         let particles = r.particles.map(function(p , j) {
-            let a = new Vector2d(0, p.mass * 0.00098);
+
+            let f = globalForces.reduce((v1, v2) => {
+                return Vector2d.add(v1, v2);
+            }, new Vector2d(0, 0));
+
+            let a = Vector2d.divide(f, p.mass);
+
+            //Apply accelleration caused by gravity
+            //My understanding of physics is terrible, but handling gravity separately
+            //as an accelleration rather than a force made the most sense.
+            a = Vector2d.add(new Vector2d(0, 0.00098), a);
+
             let currentVelocity = Vector2d.subtract(p.position, previousState.rigidBodies[i].particles[j].position);
             let n = Vector2d.add(p.position, Vector2d.add(currentVelocity, Vector2d.multiply(a, Math.pow(timestep, 2))));
 
@@ -114,14 +162,23 @@ function createSquareRigidBody(width: number, height: number, position: Vector2d
 }   
 
 
+
+
+
 function main(window: Window, canvas: HTMLCanvasElement) {
 
     let ctx = canvas.getContext('2d');
 
+    // let state = new GameState([
+    //     createTriangleRigidBody(120, 85, new Vector2d(70, 60), 3),
+    //     createSquareRigidBody(40, 60, new Vector2d(250, 30), 2),
+    //     createSquareRigidBody(70, 20, new Vector2d(400, 10), 1)
+    // ]); 
+
     let state = new GameState([
-        createTriangleRigidBody(120, 85, new Vector2d(70, 60), 3),
-        createSquareRigidBody(40, 60, new Vector2d(250, 30), 2),
-        createSquareRigidBody(70, 20, new Vector2d(400, 10), 1)
+        createSquareRigidBody(40, 40, new Vector2d(20, 0), 1),
+        createSquareRigidBody(40, 40, new Vector2d(80, 0), 2),
+        createSquareRigidBody(40, 40, new Vector2d(140, 0), 3)
     ]); 
 
     let previousState = state;
@@ -129,11 +186,24 @@ function main(window: Window, canvas: HTMLCanvasElement) {
     let step = 1000/60;
     let previousTimestamp = window.performance.now();
 
+    let inputEventQueue: KeyboardEvent[] = [];
+
+    window.addEventListener('keydown', (e) => {
+        inputEventQueue.push(e);
+    });
+    window.addEventListener('keyup', (e) => {
+        inputEventQueue.push(e);
+    });
+
+    
     let iterate = (timestamp: number) => {
+        
         accumulated += timestamp - previousTimestamp;
         while(accumulated >= step) {
             let c = state;
-            state = advanceState(step, state, previousState);
+            state = advanceState(step, state, previousState, inputEventQueue.slice(0));
+            inputEventQueue = [];
+
             renderState(state, canvas, ctx);
             previousState = c;
             accumulated -= step;
@@ -146,5 +216,9 @@ function main(window: Window, canvas: HTMLCanvasElement) {
     iterate(window.performance.now());
 }
 
+ 
+
+
 main(window, <HTMLCanvasElement>document.getElementById('canvas'));
+
 
