@@ -60,20 +60,27 @@ function advanceState(timestep: number, state: GameState, previousState: GameSta
 
         let particles = r.particles.map(function(p , j) {
 
+            //Calculate gravitational accelleration
+            let g = 9.81 * Math.pow(10, -4);
+            //and the force created by the particles mass
+            let gravitationalForce = new Vector2d(0, g * p.mass);
+
+            //Combine all our forces, and append the gravitional force
             let f = globalForces.reduce((v1, v2) => {
                 return Vector2d.add(v1, v2);
-            }, new Vector2d(0, 0));
+            }, gravitationalForce);
 
-            let a = Vector2d.divide(f, p.mass);
+            //Calculate the accelleration from the combined forces and the particles mass
+            let a = Vector2d.divide(f, p.mass); 
 
-            //Apply accelleration caused by gravity
-            //My understanding of physics is terrible, but handling gravity separately
-            //as an accelleration rather than a force made the most sense.
-            a = Vector2d.add(new Vector2d(0, 0.00098), a);
-
+            //Calculate the current velocity from the previous two states
             let currentVelocity = Vector2d.subtract(p.position, previousState.rigidBodies[i].particles[j].position);
+
+            //and integrate the particles position using the position verlet method 
             let n = Vector2d.add(p.position, Vector2d.add(currentVelocity, Vector2d.multiply(a, Math.pow(timestep, 2))));
 
+            //Crappy collision detection, ideally we should model this using
+            //an opposing force 
             if(n.y > 500) {
                 n = new Vector2d(n.x, 500);
             }
