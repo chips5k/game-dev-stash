@@ -18,48 +18,50 @@ class GameState {
 }
 
 
-function advanceState(timestep: number, state: GameState, previousState: GameState, inputEventQueue: KeyboardEvent[]) {
 
-    //Add default air resistance
-    let globalForces: Vector2d[] = [
-        new Vector2d(0, -0.00009)
-    ];
+function advanceState(timestep: number, state: GameState, previousState: GameState, inputState: { [id: string]: Boolean; } ) {
 
-    for(let e of inputEventQueue) {
-        switch(e.type) {
-            case 'keydown':
-                switch(e.key) {
-                    case 'd':   
-                        globalForces.push(new Vector2d(0.0005, 0));
-                    break;
+   
+    
 
-                    case 'a':   
-                        globalForces.push(new Vector2d(-0.0005, 0));
-                    break;
-
-                    case 'w':
-                        globalForces.push(new Vector2d(0, -0.0005));
-                    break;
-
-                    case 's':
-                        globalForces.push(new Vector2d(0, 0.0005));
-                    break;
-                }
-            break;
-
-            case 'keyup':
-
-            break;
-        }
-    }
+    
 
 
     
 
     let rigidBodies = state.rigidBodies.map(function(r, i) {
 
+         //Add default air resistance
+        let globalForces: Vector2d[] = [
+            new Vector2d(0, -0.00009)
+        ];
+
+        if(i === 1) {
+            if(inputState['w']) {
+                globalForces.push(new Vector2d(0, -0.0005));
+            }
+
+            if(inputState['a']) {
+                globalForces.push(new Vector2d(-0.0005, 0));
+                
+            }
+
+            if(inputState['d']) {
+                globalForces.push(new Vector2d(0.0005, 0));
+            }
+
+            if(inputState[' ']) {
+                globalForces.push(new Vector2d(0, -0.005));
+            }
+
+
+        }
+        
         let particles = r.particles.map(function(p , j) {
 
+
+
+            
             //Calculate gravitational accelleration
             let g = 9.81 * Math.pow(10, -4);
             //and the force created by the particles mass
@@ -83,6 +85,18 @@ function advanceState(timestep: number, state: GameState, previousState: GameSta
             //an opposing force 
             if(n.y > 500) {
                 n = new Vector2d(n.x, 500);
+            }
+
+            if(n.y < 0) {
+                n = new Vector2d(n.x, 0);
+            }
+
+            if(n.x < 0) {
+                n = new Vector2d(0, n.y);
+            }
+
+            if(n.x > 800) {
+                n = new Vector2d(800, n.y);
             }
 
             return new Particle(n, p.mass);
@@ -162,7 +176,8 @@ function createSquareRigidBody(width: number, height: number, position: Vector2d
         new Constraint(1, 2, width),
         new Constraint(2, 3, height),
         new Constraint(3, 0, width),
-        new Constraint(1, 3, Vector2d.magnitude(new Vector2d(width, height)))
+        new Constraint(1, 3, Vector2d.magnitude(new Vector2d(width, height))),
+        new Constraint(0, 2, Vector2d.magnitude(new Vector2d(width, height)))
     ];
 
     return new RigidBody(particles, constraints);
@@ -176,31 +191,31 @@ function main(window: Window, canvas: HTMLCanvasElement) {
 
     let ctx = canvas.getContext('2d');
 
-    // let state = new GameState([
-    //     createTriangleRigidBody(120, 85, new Vector2d(70, 60), 3),
-    //     createSquareRigidBody(40, 60, new Vector2d(250, 30), 2),
-    //     createSquareRigidBody(70, 20, new Vector2d(400, 10), 1)
-    // ]); 
-
     let state = new GameState([
-        createSquareRigidBody(40, 40, new Vector2d(20, 0), 1),
-        createSquareRigidBody(40, 40, new Vector2d(80, 0), 2),
-        createSquareRigidBody(40, 40, new Vector2d(140, 0), 3)
+        createTriangleRigidBody(120, 85, new Vector2d(70, 60), 3),
+        createSquareRigidBody(40, 60, new Vector2d(250, 30), 2),
+        createSquareRigidBody(70, 20, new Vector2d(400, 10), 1)
     ]); 
+
+    // let state = new GameState([
+    //     createSquareRigidBody(40, 40, new Vector2d(20, 0), 1),
+    //     createSquareRigidBody(40, 40, new Vector2d(80, 0), 2),
+    //     createSquareRigidBody(40, 40, new Vector2d(140, 0), 3)
+    // ]); 
 
     let previousState = state;
     let accumulated = 0;
     let step = 1000/60;
     let previousTimestamp = window.performance.now();
 
-    let inputEventQueue: KeyboardEvent[] = [];
+    let inputState: { [id: string]: Boolean; } = {};
 
     window.addEventListener('keydown', (e) => {
-        inputEventQueue.push(e);
-    });
+        inputState[e.key] = true;
+    }, true);
     window.addEventListener('keyup', (e) => {
-        inputEventQueue.push(e);
-    });
+        inputState[e.key] = false;
+    }, true);
 
     
     let iterate = (timestamp: number) => {
@@ -208,9 +223,8 @@ function main(window: Window, canvas: HTMLCanvasElement) {
         accumulated += timestamp - previousTimestamp;
         while(accumulated >= step) {
             let c = state;
-            state = advanceState(step, state, previousState, inputEventQueue.slice(0));
-            inputEventQueue = [];
-
+            state = advanceState(step, state, previousState, Object.assign({}, inputState));
+            
             renderState(state, canvas, ctx);
             previousState = c;
             accumulated -= step;
