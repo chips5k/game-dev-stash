@@ -36,7 +36,7 @@ function advanceState(timestep: number, state: GameState, previousState: GameSta
             new Vector2d(0, -0.00009)
         ];
 
-        if(i === 1) {
+        if(i === 0) {
             if(inputState['w']) {
                 globalForces.push(new Vector2d(0, -0.0005));
             }
@@ -72,11 +72,23 @@ function advanceState(timestep: number, state: GameState, previousState: GameSta
                 return Vector2d.add(v1, v2);
             }, gravitationalForce);
 
-            //Calculate the accelleration from the combined forces and the particles mass
-            let a = Vector2d.divide(f, p.mass); 
-
+            
             //Calculate the current velocity from the previous two states
             let currentVelocity = Vector2d.subtract(p.position, previousState.rigidBodies[i].particles[j].position);
+
+            //Add negative frictionional forces (if moving right)
+            if(currentVelocity.x > 0) {
+                f = Vector2d.add(new Vector2d(-0.0001, 0), f);
+            }
+
+            //Add positive frictionional forces (if moving left)
+            if(currentVelocity.x < 0) {
+                f = Vector2d.add(new Vector2d(0.0001, 0), f);
+            }
+
+            //Calculate the acceleration from the combined forces and the particles mass
+            let a = Vector2d.divide(f, p.mass); 
+
 
             //and integrate the particles position using the position verlet method 
             let n = Vector2d.add(p.position, Vector2d.add(currentVelocity, Vector2d.multiply(a, Math.pow(timestep, 2))));
